@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="source-map" content="none">
     <title>全台灣大罷免 連署書填寫系統</title>
     <!-- Open Graph -->
 <meta property="og:title" content="全台灣大罷免行動！線上填寫，離線保護隱私，一起罷免親共立委！">
@@ -18,6 +19,20 @@
 
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/css/select2.min.css">
+    <script>
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
     <style>
         body {
             font-size: 18px;
@@ -29,6 +44,30 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 0;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .form-row .form-group {
+                width: 100%;
+            }
+            .overlay-content {
+                padding: 20px;
+                width: 95%;
+            }
+            .overlay-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .overlay-buttons .btn {
+                width: 100%;
+                margin: 0;
+            }
         }
         .form-group {
             margin-bottom: 1.5rem;
@@ -142,7 +181,7 @@
         }
         .submit-container {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
         }
         .tab-key {
             display: inline-block;
@@ -249,9 +288,59 @@
             height: 45px;
             font-size: 18px;
         }
+        /* Toast 样式 */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        .toast {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .toast-header {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+        /* 进度条样式 */
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 15px;
+            background-color: #f8f9fa;
+            z-index: 9999;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A, #CDDC39);
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #000;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+        }
     </style>
 </head>
 <body>
+    <!-- 添加进度条 -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        <div class="progress-text" id="progressText">0%</div>
+    </div>
     <div class="container">
         <h1 id="mainTitle" class="text-center">全台大罷免 連署書填寫系統</h1>
         
@@ -296,7 +385,8 @@
                 </div>
             </div>
 
-            <div class="submit-container">
+            <div class="submit-container" style="display: flex; justify-content: space-between;">
+                <button type="button" class="btn btn-secondary back-to-select-btn">返回選擇罷免對象</button>
                 <button type="submit" class="btn btn-primary">生成預覽</button>
             </div>
         </form>
@@ -321,15 +411,51 @@
     <footer class="footer mt-5 py-3 bg-light">
         <div class="container text-center">
             <p class="mb-1">
-本<a href="https://github.com/Zola/bamian" target="_blank">專案</a>開放源代碼，</a>基於 <a href="https://recall2025.ourtaiwan.tw" target="_blank">廖國翔律師</a> 的在線連署文書項目的PNG圖片數據開發，提供完全離線的罷免連署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。
+本<a href="https://github.com/Zola/bamian" target="_blank">離線連署書製作專案</a>由花蓮人佐拉獨立開發，開放源代碼，提供完全離線的罷免連署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。歡迎斷開WI-FI使用，歡迎分享給親朋好友。花蓮人懇求
                 <br><br>
                 本網站開發者聯絡方式： <a href="https://zuo.la/" target="_blank">佐拉</a> | 
                 <a href="tel:0978877777">0978-877-777</a> | 
                 <a href="mailto:zuola.com@gmail.com?subject=我使用離線連署網站有問題要反饋&body=問題描述：%0D%0A%0D%0A電腦型號：%0D%0A作業系統：%0D%0A瀏覽器類型：%0D%0A截圖附件：%0D%0A%0D%0A聯繫人：%0D%0A電話：">zuola.com@gmail.com</a>
-            <br> </p>
+            <br>
+            <div id="offlineStatus" class="mt-3">
+                <button class="btn btn-sm btn-success me-2" id="onlineBadge" style="display: none;">已連線</button>
+                <button class="btn btn-sm btn-warning me-2" id="offlineBadge" style="display: none;">離線模式</button>
+                <button id="clearCache" class="btn btn-sm btn-outline-danger">清除離線緩存</button>
+            </div>
+            </p>
         </div>
     </footer>
     <br><br><br><br><br>
+    <!-- 添加 Toast 容器 -->
+    <div class="toast-container">
+        <div id="loadingToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">系統提示</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span id="loadingMessage">正在處理中...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">系統提示</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                    <span id="successMessage">操作成功！</span>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="assets/js/jquery.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/select2.min.js"></script>
@@ -346,6 +472,270 @@
         const script = document.createElement('script');
         script.src = `main.js?t=${timestamp}`;
         document.body.appendChild(script);
+    </script>
+    <script>
+        // 定义缓存资源列表
+        const STATIC_RESOURCES = [
+            '/',
+            '/index.html',
+            '/main.js',
+            '/data.json',
+            '/config/template-config.json',
+            '/assets/css/bootstrap.min.css',
+            '/assets/css/select2.min.css',
+            '/assets/js/jquery.min.js',
+            '/assets/js/bootstrap.bundle.min.js',
+            '/assets/js/select2.min.js',
+            '/assets/js/jspdf.umd.min.js'
+        ];
+
+        const IMAGES_TO_CACHE = [
+            '/images/顏寬恒.png',
+            '/images/游顥.png',
+            '/images/preview.png',
+            '/images/丁學忠.png',
+            '/images/傅崐萁.png',
+            '/images/呂玉玲.png',
+            '/images/廖偉翔.png',
+            '/images/廖先翔.png',
+            '/images/張智倫.png',
+            '/images/徐巧芯.png',
+            '/images/徐欣瑩.png',
+            '/images/李彥秀.png',
+            '/images/林德福.png',
+            '/images/林思銘.png',
+            '/images/林沛祥.png',
+            '/images/楊瓊瓔.png',
+            '/images/江啟臣.png',
+            '/images/洪孟楷.png',
+            '/images/涂權吉.png',
+            '/images/牛煦庭.png',
+            '/images/王鴻薇.png',
+            '/images/羅廷瑋.png',
+            '/images/羅明才.png',
+            '/images/羅智強.png',
+            '/images/萬美玲.png',
+            '/images/葉元之.png',
+            '/images/謝衣鳯.png',
+            '/images/賴士葆.png',
+            '/images/邱若華.png',
+            '/images/邱鎮軍.png',
+            '/images/鄭正鈐.png',
+            '/images/陳超明.png',
+            '/images/馬文君.png',
+            '/images/高虹安.png',
+            '/images/魯明哲.png',
+            '/images/黃健豪.png',
+            '/images/黃建賓.png'
+        ];
+
+        // 离线状态管理
+        function updateOnlineStatus() {
+            const onlineBadge = document.getElementById('onlineBadge');
+            const offlineBadge = document.getElementById('offlineBadge');
+            
+            if (navigator.onLine) {
+                onlineBadge.style.display = 'inline-block';
+                offlineBadge.style.display = 'none';
+            } else {
+                onlineBadge.style.display = 'none';
+                offlineBadge.style.display = 'inline-block';
+            }
+        }
+
+        // 监听在线状态变化
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        
+        // 初始化状态
+        updateOnlineStatus();
+
+        // 更新进度条
+        function updateProgress(current, total) {
+            const percentage = Math.round((current / total) * 100);
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${percentage}%`;
+        }
+
+        // 检查缓存状态
+        async function checkCacheStatus() {
+            if ('caches' in window) {
+                try {
+                    const cache = await caches.open('bamian-cache-v1');
+                    let cachedCount = 0;
+                    let failedResources = [];
+                    const totalResources = STATIC_RESOURCES.length + IMAGES_TO_CACHE.length;
+                    
+                    // 显示初始状态
+                    showToast('loadingToast', `正在檢查緩存狀態 (0/${totalResources})...`);
+                    updateProgress(0, totalResources);
+                    
+                    // 检查静态资源
+                    for (const resource of STATIC_RESOURCES) {
+                        try {
+                            const response = await cache.match(resource);
+                            if (response) {
+                                cachedCount++;
+                            } else {
+                                await cache.add(resource);
+                                cachedCount++;
+                            }
+                            document.getElementById('loadingMessage').textContent = 
+                                `正在緩存資源 (${cachedCount}/${totalResources})...`;
+                            updateProgress(cachedCount, totalResources);
+                        } catch (error) {
+                            console.error('缓存资源失败:', resource, error);
+                            failedResources.push({
+                                url: resource,
+                                type: '静态资源',
+                                error: error.message
+                            });
+                        }
+                    }
+                    
+                    // 检查图片资源
+                    for (const image of IMAGES_TO_CACHE) {
+                        try {
+                            const response = await cache.match(image);
+                            if (response) {
+                                cachedCount++;
+                            } else {
+                                await cache.add(image);
+                                cachedCount++;
+                            }
+                            document.getElementById('loadingMessage').textContent = 
+                                `正在緩存資源 (${cachedCount}/${totalResources})...`;
+                            updateProgress(cachedCount, totalResources);
+                        } catch (error) {
+                            console.error('缓存图片失败:', image, error);
+                            failedResources.push({
+                                url: image,
+                                type: '图片',
+                                error: error.message
+                            });
+                        }
+                    }
+                    
+                    // 缓存完成提示
+                    let completionMessage = `資源緩存完成！共緩存 ${cachedCount} 個文件`;
+                    if (failedResources.length > 0) {
+                        completionMessage += `，${failedResources.length} 個文件緩存失敗`;
+                    }
+                    showToast('successToast', completionMessage, 5000);
+                    updateProgress(totalResources, totalResources);
+                    
+                    // 30秒后隐藏进度条
+                    setTimeout(() => {
+                        const progressContainer = document.querySelector('.progress-container');
+                        progressContainer.style.opacity = '0';
+                        progressContainer.style.transition = 'opacity 0.5s ease';
+                    }, 30000);
+                    
+                    // 添加查看缓存内容的按钮
+                    const cacheInfo = document.createElement('div');
+                    cacheInfo.className = 'mt-2';
+                    cacheInfo.innerHTML = `
+                        <button class="btn btn-sm btn-info me-2" onclick="showCacheContents()">
+                            查看已緩存資源
+                        </button>
+                        ${failedResources.length > 0 ? `
+                        <button class="btn btn-sm btn-warning" onclick="showFailedResources()">
+                            查看緩存失敗的資源
+                        </button>
+                        ` : ''}
+                    `;
+                    document.getElementById('offlineStatus').appendChild(cacheInfo);
+                    
+                    // 保存失败资源列表供后续使用
+                    window.failedResources = failedResources;
+                    
+                } catch (error) {
+                    console.error('检查缓存状态失败:', error);
+                    showToast('successToast', '檢查緩存狀態失敗，請刷新頁面重試', 5000);
+                }
+            }
+        }
+
+        // 显示缓存内容
+        async function showCacheContents() {
+            if ('caches' in window) {
+                try {
+                    const cache = await caches.open('bamian-cache-v1');
+                    const keys = await cache.keys();
+                    const urls = keys.map(request => request.url);
+                    
+                    // 创建缓存内容列表
+                    let content = '已緩存的資源：\n\n';
+                    urls.forEach(url => {
+                        content += `${url}\n`;
+                    });
+                    
+                    // 显示缓存内容
+                    alert(content);
+                } catch (error) {
+                    console.error('获取缓存内容失败:', error);
+                    showToast('successToast', '獲取緩存內容失敗');
+                }
+            }
+        }
+
+        // 显示缓存失败的资源
+        function showFailedResources() {
+            if (window.failedResources && window.failedResources.length > 0) {
+                let content = '緩存失敗的資源：\n\n';
+                window.failedResources.forEach(item => {
+                    content += `類型：${item.type}\nURL：${item.url}\n錯誤：${item.error}\n\n`;
+                });
+                alert(content);
+            }
+        }
+
+        // 页面加载完成后检查缓存状态
+        window.addEventListener('load', checkCacheStatus);
+
+        // Toast 提示函数
+        function showToast(toastId, message, duration = 5000) {
+            const toast = new bootstrap.Toast(document.getElementById(toastId), {
+                delay: duration
+            });
+            document.getElementById(toastId === 'loadingToast' ? 'loadingMessage' : 'successMessage').textContent = message;
+            toast.show();
+            return toast;
+        }
+
+        // 清除缓存功能
+        document.getElementById('clearCache').addEventListener('click', function() {
+            if ('caches' in window) {
+                // 显示加载提示
+                const loadingToast = showToast('loadingToast', '正在清除離線緩存...');
+                
+                caches.keys().then(function(cacheNames) {
+                    return Promise.all(
+                        cacheNames.map(function(cacheName) {
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }).then(function() {
+                    // 隐藏加载提示
+                    loadingToast.hide();
+                    // 显示成功提示
+                    showToast('successToast', '離線緩存已清除，頁面將重新載入以更新資源。');
+                    // 延迟刷新页面
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }).catch(function(error) {
+                    // 隐藏加载提示
+                    loadingToast.hide();
+                    // 显示错误提示
+                    showToast('successToast', '清除緩存時發生錯誤，請稍後再試。');
+                    console.error('清除缓存时发生错误:', error);
+                });
+            }
+        });
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

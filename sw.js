@@ -52,10 +52,7 @@ const STATIC_RESOURCES = [
   '/assets/js/jquery.min.js',
   '/assets/js/bootstrap.bundle.min.js',
   '/assets/js/select2.min.js',
-  '/assets/js/jspdf.umd.min.js',
-  '/assets/css/bootstrap.min.css.map',
-  '/assets/js/bootstrap.bundle.min.js.map',
-  '/assets/js/jspdf.umd.min.js.map'
+  '/assets/js/jspdf.umd.min.js'
 ];
 
 // 安装Service Worker时缓存所有资源
@@ -75,6 +72,21 @@ self.addEventListener('install', (event) => {
             console.log('所有资源缓存完成');
           });
       })
+  );
+});
+
+// 激活 Service Worker
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });
 

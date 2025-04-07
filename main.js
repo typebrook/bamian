@@ -144,6 +144,18 @@ function loadTargetInfo(name) {
     // 設置新的開始時間
     startTime = Date.now();
     localStorage.setItem('startTime', startTime.toString());
+
+    // 为返回选择按钮添加点击事件
+    $('.back-to-select-btn').on('click', function() {
+        // 隐藏表单和预览区域
+        $('#petitionForm').hide();
+        $('.preview-container').hide();
+        // 显示搜索区域和标签云
+        $('#searchSection').show();
+        $('#mainTitle').show();
+        // 重置 Select2
+        $('#targetSearch').val('').trigger('change');
+    });
 }
 
 // 表单提交处理
@@ -179,12 +191,46 @@ $('#petitionForm').on('submit', function(e) {
 async function loadImage(src) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'Anonymous';  // 允许跨域加载图片
+        img.crossOrigin = 'anonymous';  // 允许跨域
         
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`图片加载失败: ${src}`));
+        img.onerror = async (error) => {
+            console.error('加载图片失败:', src, error);
+            // 尝试从缓存加载
+            try {
+                const cache = await caches.open('bamian-cache-v1');
+                const response = await cache.match(src);
+                if (response) {
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    const cachedImg = new Image();
+                    cachedImg.crossOrigin = 'anonymous';
+                    cachedImg.onload = () => resolve(cachedImg);
+                    cachedImg.onerror = () => reject(new Error('无法加载图片'));
+                    cachedImg.src = objectUrl;
+                } else {
+                    reject(new Error('图片未缓存'));
+                }
+            } catch (cacheError) {
+                console.error('从缓存加载图片失败:', cacheError);
+                reject(cacheError);
+            }
+        };
         
-        img.src = src;
+        // 先尝试从缓存加载
+        caches.match(src).then(async (response) => {
+            if (response) {
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                img.src = objectUrl;
+            } else {
+                // 如果缓存中没有，则从网络加载
+                img.src = src;
+            }
+        }).catch(() => {
+            // 如果缓存访问失败，直接从网络加载
+            img.src = src;
+        });
     });
 }
 
@@ -334,10 +380,10 @@ async function generatePDF() {
         // 加载模板配置
         let templateConfig;
         try {
-            const timestamp = new Date().getTime();
-            const response = await fetch(`config/template-config.json?t=${timestamp}`);
-            if (!response.ok) {
-                throw new Error(`无法加载模板配置: ${response.status} ${response.statusText}`);
+            const cache = await caches.open('bamian-cache-v1');
+            const response = await cache.match('/config/template-config.json');
+            if (!response) {
+                throw new Error('模板配置未缓存');
             }
             templateConfig = await response.json();
             console.log('成功加载模板配置:', Object.keys(templateConfig));
@@ -381,30 +427,14 @@ async function generatePDF() {
         
         // 计算图片在PDF中的尺寸，保持原始比例
         const pageWidth = 297;  // A4 横向宽度（毫米）
-        const pageHeight = 210; // A4 横向高度（毫米）
+        const pageHeight = 210;  // A4 横向高度（毫米）
         
-        // 计算缩放比例
-        const scale = Math.min(
-            pageWidth / canvas.width,
-            pageHeight / canvas.height
-        );
+        // 添加图片到 PDF
+        doc.addImage(canvasDataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
         
-        // 计算居中位置
-        const scaledWidth = canvas.width * scale;
-        const scaledHeight = canvas.height * scale;
-        const x = (pageWidth - scaledWidth) / 2;
-        const y = (pageHeight - scaledHeight) / 2;
-        
-        // 添加 Canvas 图像到 PDF
-        doc.addImage(canvasDataUrl, 'PNG', x, y, scaledWidth, scaledHeight);
-        
-        // 生成 PDF blob
-        const pdfBlob = doc.output('blob');
-        const pdfUrl = URL.createObjectURL(pdfBlob);
-        
-        // 显示 PDF 预览
-        const pdfContainer = document.createElement('div');
-        pdfContainer.style.marginTop = '20px';
+        // 显示预览
+        const previewContainer = document.querySelector('.preview-container');
+        previewContainer.style.display = 'block';
         
         // 创建按钮容器
         const buttonContainer = document.createElement('div');
@@ -412,7 +442,7 @@ async function generatePDF() {
         
         // 创建返回按钮
         const backButton = document.createElement('button');
-        backButton.className = 'btn btn-secondary';
+        backButton.className = 'btn btn-secondary me-2';
         backButton.textContent = '返回修改資料';
         backButton.onclick = function() {
             // 隐藏返回按钮和预览区域
@@ -424,11 +454,11 @@ async function generatePDF() {
         
         // 创建下载按钮
         const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'btn btn-primary';
+        downloadBtn.className = 'btn btn-primary me-2';
         downloadBtn.textContent = '下載PDF再去便利店列印';
         downloadBtn.onclick = function() {
             const link = document.createElement('a');
-            link.href = pdfUrl;
+            link.href = pdfData;
             link.download = `連署書_${formData.name}.pdf`;
             document.body.appendChild(link);
             link.click();
@@ -443,9 +473,15 @@ async function generatePDF() {
         printBtn.className = 'btn btn-success';
         printBtn.textContent = '列印';
         printBtn.onclick = function() {
-            const printWindow = window.open(pdfUrl, '_blank');
+            // 获取 PDF 数据
+            const pdfData = doc.output('blob');
+            const blobUrl = URL.createObjectURL(pdfData);
+            
+            // 在新窗口中打开 PDF
+            const printWindow = window.open(blobUrl, '_blank');
+            
+            // 添加打印样式
             printWindow.onload = function() {
-                // 添加打印样式
                 const style = printWindow.document.createElement('style');
                 style.textContent = `
                     @page {
@@ -469,6 +505,8 @@ async function generatePDF() {
                 // 延迟执行打印，确保样式已应用
                 setTimeout(function() {
                     printWindow.print();
+                    // 打印完成后释放 blob URL
+                    URL.revokeObjectURL(blobUrl);
                 }, 1000);
             };
             
@@ -481,26 +519,75 @@ async function generatePDF() {
         buttonContainer.appendChild(downloadBtn);
         buttonContainer.appendChild(printBtn);
         
-        // 添加按钮容器到预览区域的最前面
-        $('#pdfPreview').empty().append(buttonContainer);
+        // 清空预览容器并添加按钮和新的 iframe
+        const pdfPreview = document.getElementById('pdfPreview');
+        pdfPreview.innerHTML = '';
+        pdfPreview.appendChild(buttonContainer);
         
-        const pdfIframe = document.createElement('iframe');
-        pdfIframe.src = pdfUrl;
-        pdfIframe.width = '100%';
-        pdfIframe.height = '560px';
-        pdfIframe.style.border = 'none';
-        pdfIframe.style.overflow = 'hidden';
-        pdfIframe.style.margin = 'auto'; // 添加這行以居中顯示
-        $('#pdfPreview').append(pdfIframe);
+        // 创建预览 iframe
+        const previewFrame = document.createElement('iframe');
+        previewFrame.style.width = '100%';
+        previewFrame.style.height = '500px';
+        previewFrame.style.border = 'none';
+        pdfPreview.appendChild(previewFrame);
         
-        $('.preview-container').show();
+        // 将 PDF 数据写入 iframe
+        const pdfData = doc.output('datauristring');
+        previewFrame.src = pdfData;
         
-        // 存储 PDF URL 到按钮的 data 属性
-        $(printBtn).data('pdfUrl', pdfUrl);
-        $(downloadBtn).data('pdfUrl', pdfUrl);
+        // 创建预览下方的按钮容器
+        const previewBottomButtons = document.createElement('div');
+        previewBottomButtons.className = 'd-flex justify-content-between align-items-center mt-3';
+        
+        // 创建"我要罢免其他区域的立委"按钮
+        const changeTargetBtn = document.createElement('button');
+        changeTargetBtn.className = 'btn btn-secondary';
+        changeTargetBtn.textContent = '我要罷免其他區域的立委';
+        changeTargetBtn.onclick = function() {
+            // 隐藏表单和预览区域
+            $('#petitionForm').hide();
+            $('.preview-container').hide();
+            // 显示搜索区域和标签云
+            $('#searchSection').show();
+            $('#mainTitle').show();
+            // 重置 Select2
+            $('#targetSearch').val('').trigger('change');
+        };
+        
+        // 创建"继续填写罢免某某某"按钮
+        const continueBtn = document.createElement('button');
+        continueBtn.className = 'btn btn-primary';
+        continueBtn.textContent = `繼續填寫罷免${target.name}`;
+        continueBtn.onclick = function() {
+            // 隐藏预览区域
+            $('.preview-container').hide();
+            // 显示表单
+            $('#petitionForm').show();
+            
+            // 清空表单数据
+            $('#name').val('');
+            $('#idNumber').val('');
+            $('#birthDate').val('');
+            $('#address').val('');
+            
+            // 更新开始时间
+            startTime = Date.now();
+            localStorage.setItem('startTime', startTime.toString());
+        };
+        
+        // 添加按钮到预览下方按钮容器
+        previewBottomButtons.appendChild(changeTargetBtn);
+        previewBottomButtons.appendChild(continueBtn);
+        
+        // 添加预览下方按钮容器到预览容器
+        pdfPreview.appendChild(previewBottomButtons);
+        
+        // 滚动到预览区域
+        previewContainer.scrollIntoView({ behavior: 'smooth' });
+        
     } catch (error) {
-        console.error('PDF生成失败:', error);
-        alert('PDF生成失败：' + error.message);
+        console.error('生成 PDF 失败:', error);
+        alert('生成 PDF 失败: ' + error.message);
     }
 }
 
@@ -530,6 +617,19 @@ function showOverlay() {
         
         // 更新继续按钮的文本
         $('#continueBtn').text(`繼續填寫罷免${target.name}`);
+        
+        // 添加关闭按钮
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'btn-close position-absolute top-0 end-0 m-3';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.onclick = function() {
+            $('#overlay').hide();
+        };
+        
+        // 确保关闭按钮在overlay-content内部
+        const overlayContent = document.querySelector('.overlay-content');
+        overlayContent.style.position = 'relative';
+        overlayContent.appendChild(closeBtn);
         
         $('#overlay').show();
         // 确保继续按钮获得焦点
@@ -605,6 +705,28 @@ function showPetitionForm(name) {
     // 顯示表單
     const petitionForm = document.getElementById('petitionForm');
     petitionForm.style.display = 'block';
+    
+    // 检查是否已经存在返回选择按钮
+    let backToSelectBtn = $('#petitionForm').find('.back-to-select-btn');
+    if (backToSelectBtn.length === 0) {
+        // 如果不存在，则创建并添加
+        backToSelectBtn = $('<button>')
+            .addClass('btn btn-secondary mt-3 back-to-select-btn')
+            .text('返回選擇罷免對象')
+            .on('click', function() {
+                // 隐藏表单和预览区域
+                $('#petitionForm').hide();
+                $('.preview-container').hide();
+                // 显示搜索区域和标签云
+                $('#searchSection').show();
+                $('#mainTitle').show();
+                // 重置 Select2
+                $('#targetSearch').val('').trigger('change');
+            });
+        
+        // 将返回选择按钮添加到表单下方
+        $('#petitionForm').append(backToSelectBtn);
+    }
     
     // 更新連署統計
     updatePetitionStats(name);
