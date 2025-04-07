@@ -29,6 +29,7 @@ function clearExpiredStorage() {
     if (targetExpiryTime && Date.now() > parseInt(targetExpiryTime)) {
         localStorage.removeItem('currentTarget');
         localStorage.removeItem('targetExpiryTime');
+        localStorage.removeItem('startTime');
     }
 }
 
@@ -70,6 +71,7 @@ $(document).ready(function() {
         const selectedName = e.params.data.id;
         // 记录开始时间
         startTime = Date.now();
+        localStorage.setItem('startTime', startTime.toString());
         // 清理之前的 PDF 相关数据
         localStorage.removeItem('pdfData');
         localStorage.removeItem('formData');
@@ -85,7 +87,7 @@ $(document).ready(function() {
         data.forEach(item => {
             const name = item.name;
             const count = petitionStats[name] || 0;
-            const size = Math.max(1, Math.min(2, 1 + count * 0.1)); // 根據聯署次數調整大小
+            const size = Math.max(1, Math.min(2, 1 + count * 0.1)); // 根據連署次數調整大小
             const tag = document.createElement('a');
             tag.className = 'tag-cloud-item';
             tag.textContent = `${name} (${count})`;
@@ -135,6 +137,13 @@ function loadTargetInfo(name) {
     // 保存當前目標到 localStorage
     localStorage.setItem('currentTarget', JSON.stringify(target));
     setExpiryTime('target');
+    
+    // 清除旧的开始时间
+    localStorage.removeItem('startTime');
+    
+    // 設置新的開始時間
+    startTime = Date.now();
+    localStorage.setItem('startTime', startTime.toString());
 }
 
 // 表单提交处理
@@ -420,7 +429,7 @@ async function generatePDF() {
         downloadBtn.onclick = function() {
             const link = document.createElement('a');
             link.href = pdfUrl;
-            link.download = `聯署書_${formData.name}.pdf`;
+            link.download = `連署書_${formData.name}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -504,13 +513,19 @@ function showOverlay() {
         
         // 计算联署用时
         const endTime = Date.now();
-        // 确保startTime不为null，如果为null则使用当前时间
-        if (!startTime) {
+        // 从 localStorage 获取开始时间
+        const storedStartTime = localStorage.getItem('startTime');
+        startTime = storedStartTime ? parseInt(storedStartTime) : endTime;
+        
+        // 确保时间有效
+        if (isNaN(startTime) || isNaN(endTime) || endTime < startTime) {
+            console.error('时间计算错误:', { startTime, endTime });
             startTime = endTime;
         }
+        
         const timeSpent = Math.round((endTime - startTime) / 1000); // 转换为秒
         
-        const message = `${firstName} ** 先生/小姐，罷免不適任的${target.name}可以讓立法院回歸正軌。\n\n感謝你行使自己的政治權利。\n\n你聯署只花了${timeSpent}秒，你擊敗了100%的中國人！`;
+        const message = `${firstName} ** 先生/小姐，罷免不適任的${target.name}可以讓立法院回歸正軌。\n\n感謝你行使自己的政治權利。\n\n你連署只花了${timeSpent}秒，你擊敗了100%的中國人！`;
         $('.overlay-message').text(message);
         
         // 更新继续按钮的文本
@@ -539,8 +554,9 @@ $(document).ready(function() {
         $('#birthDate').val('');
         $('#address').val('');
         
-        // 重置计时器
+        // 更新开始时间
         startTime = Date.now();
+        localStorage.setItem('startTime', startTime.toString());
         
         // 显示表单
         $('#petitionForm').show();
@@ -557,6 +573,7 @@ $(document).ready(function() {
         // 清空所有数据
         localStorage.removeItem('currentTarget');
         localStorage.removeItem('formData');
+        localStorage.removeItem('startTime');
         
         // 重置计时器
         startTime = null;
@@ -577,7 +594,7 @@ $(document).ready(function() {
     });
 });
 
-// 顯示聯署表單
+// 顯示連署表單
 function showPetitionForm(name) {
     // 隱藏搜索區域和標籤雲
     searchSection.style.display = 'none';
@@ -589,8 +606,15 @@ function showPetitionForm(name) {
     const petitionForm = document.getElementById('petitionForm');
     petitionForm.style.display = 'block';
     
-    // 更新聯署統計
+    // 更新連署統計
     updatePetitionStats(name);
+    
+    // 清除旧的开始时间
+    localStorage.removeItem('startTime');
+    
+    // 設置新的開始時間
+    startTime = Date.now();
+    localStorage.setItem('startTime', startTime.toString());
     
     // 顯示目標信息
     const targetInfo = document.getElementById('targetInfo');

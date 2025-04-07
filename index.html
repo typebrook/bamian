@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全台灣大罷免 聯署書填寫系統</title>
+    <title>全台灣大罷免 連署書填寫系統</title>
     <!-- Open Graph -->
 <meta property="og:title" content="全台灣大罷免行動！線上填寫，離線保護隱私，一起罷免親共立委！">
-<meta property="og:description" content="「罷免聯署書填寫系統」— 支援全台灣大罷免運動，完全離線操作，無資料蒐集，最簡單、最快速、最安全！拒絕紅色滲透，從罷免親共立委開始！">
+<meta property="og:description" content="「罷免連署書填寫系統」— 支援全台灣大罷免運動，完全離線操作，無資料蒐集，最簡單、最快速、最安全！拒絕紅色滲透，從罷免親共立委開始！">
 <meta property="og:url" content="https://bamian.zuo.la">
 <meta property="og:image" content="https://bamian.zuo.la/images/preview.png">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="全台灣大罷免行動！線上填寫，離線保護隱私，一起罷免親共立委！">
-<meta name="twitter:description" content="「罷免聯署書填寫系統」— 支援全台灣大罷免運動，完全離線操作，無資料蒐集，最簡單、最快速、最安全！拒絕紅色滲透，從罷免親共立委開始！">
+<meta name="twitter:description" content="「罷免連署書填寫系統」— 支援全台灣大罷免運動，完全離線操作，無資料蒐集，最簡單、最快速、最安全！拒絕紅色滲透，從罷免親共立委開始！">
 <meta name="twitter:image" content="https://bamian.zuo.la/images/preview.png">
 
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
@@ -253,7 +253,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 id="mainTitle" class="text-center">全台大罷免 聯署書填寫系統</h1>
+        <h1 id="mainTitle" class="text-center">全台大罷免 連署書填寫系統</h1>
         
         <div id="searchSection">
             <div class="form-group">
@@ -274,7 +274,7 @@
         <form id="petitionForm" style="display: none;">
             <div class="form-row">
                 <div class="form-group">
-                    <label for="name">聯署人姓名：</label>
+                    <label for="name">連署人姓名：</label>
                     <input type="text" class="form-control" id="name"   required>
                 </div>
                 
@@ -309,7 +309,7 @@
     <!-- 覆盖层 -->
     <div id="overlay" class="overlay" style="display: none;">
         <div class="overlay-content">
-            <div class="overlay-title">聯署成功！</div>
+            <div class="overlay-title">連署成功！</div>
             <div class="overlay-message"></div>
             <div class="overlay-buttons">
                 <button id="changeBtn" class="btn btn-secondary">我要罷免其他區域的立法委員</button>
@@ -321,11 +321,11 @@
     <footer class="footer mt-5 py-3 bg-light">
         <div class="container text-center">
             <p class="mb-1">
-本<a href="https://github.com/Zola/bamian" target="_blank">專案</a>開放源代碼，</a>基於 <a href="https://recall2025.ourtaiwan.tw" target="_blank">廖國翔律師</a> 的在線聯署文書項目的PNG圖片數據開發，提供完全離線的罷免聯署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。
+本<a href="https://github.com/Zola/bamian" target="_blank">專案</a>開放源代碼，</a>基於 <a href="https://recall2025.ourtaiwan.tw" target="_blank">廖國翔律師</a> 的在線連署文書項目的PNG圖片數據開發，提供完全離線的罷免連署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。
                 <br><br>
                 本網站開發者聯絡方式： <a href="https://zuo.la/" target="_blank">佐拉</a> | 
                 <a href="tel:0978877777">0978-877-777</a> | 
-                <a href="mailto:zuola.com@gmail.com?subject=我使用離線聯署網站有問題要反饋&body=問題描述：%0D%0A%0D%0A電腦型號：%0D%0A作業系統：%0D%0A瀏覽器類型：%0D%0A截圖附件：%0D%0A%0D%0A聯繫人：%0D%0A電話：">zuola.com@gmail.com</a>
+                <a href="mailto:zuola.com@gmail.com?subject=我使用離線連署網站有問題要反饋&body=問題描述：%0D%0A%0D%0A電腦型號：%0D%0A作業系統：%0D%0A瀏覽器類型：%0D%0A截圖附件：%0D%0A%0D%0A聯繫人：%0D%0A電話：">zuola.com@gmail.com</a>
             <br> </p>
         </div>
     </footer>
@@ -360,7 +360,7 @@
             const changeBtn = document.getElementById('changeBtn');
             let data = []; // 存儲 data.json 的數據
 
-            // 從 localStorage 獲取聯署統計數據
+            // 從 localStorage 獲取連署統計數據
             let petitionStats = JSON.parse(localStorage.getItem('petitionStats') || '{}');
 
             // 載入 data.json
@@ -427,7 +427,7 @@
                 });
             }
 
-            // 顯示聯署表單
+            // 顯示連署表單
             function showPetitionForm(name) {
                 // 隱藏搜索區域和標籤雲
                 searchSection.style.display = 'none';
@@ -435,7 +435,7 @@
                 // 調用 loadTargetInfo 來保存目標信息
                 loadTargetInfo(name);
                 
-                // 更新聯署統計
+                // 更新連署統計
                 updatePetitionStats(name);
             }
 
@@ -445,7 +445,7 @@
                 data.forEach(item => {
                     const name = item.name;
                     const count = petitionStats[name] || 0;
-                    const size = Math.max(1, Math.min(2, 1 + count * 0.1)); // 根據聯署次數調整大小
+                    const size = Math.max(1, Math.min(2, 1 + count * 0.1)); // 根據連署次數調整大小
                     const tag = document.createElement('a');
                     tag.className = 'tag-cloud-item';
                     tag.textContent = `${name} (${count})`;
@@ -458,7 +458,7 @@
                 });
             }
 
-            // 更新聯署統計
+            // 更新連署統計
             function updatePetitionStats(name) {
                 petitionStats[name] = (petitionStats[name] || 0) + 1;
                 localStorage.setItem('petitionStats', JSON.stringify(petitionStats));
