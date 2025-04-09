@@ -33,6 +33,21 @@ function clearExpiredStorage() {
     }
 }
 
+// 解析 URL 查询参数
+function getQueryParams() {
+    const params = {};
+    const queryString = window.location.search.substring(1);
+    const pairs = queryString.split('&');
+
+    for (const pair of pairs) {
+        if (pair === '') continue;
+        const parts = pair.split('=');
+        params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1] || '');
+    }
+
+    return params;
+}
+
 // 初始化 Select2
 $(document).ready(function() {
     // 定期检查并清理过期数据
@@ -64,6 +79,23 @@ $(document).ready(function() {
                 text: `${target.name} (${target.district})`
             }))
         });
+
+        // 处理 URL 查询参数
+        const queryParams = getQueryParams();
+        if (queryParams.congressperson) {
+            // 查找匹配的立委
+            const targetName = queryParams.congressperson;
+            const target = data.find(t => t.name === targetName);
+
+            if (target) {
+                // 选择对应的立委
+                const option = new Option(`${target.name} (${target.district})`, target.name, true, true);
+                $('#targetSearch').append(option).trigger('change');
+
+                // 加载立委信息
+                loadTargetInfo(target.name);
+            }
+        }
     });
 
     // 监听选择变化
@@ -133,6 +165,18 @@ function loadTargetInfo(name) {
 
     // 顯示表單
     document.getElementById('petitionForm').style.display = 'block';
+
+    // 检查是否有 URL 查询参数中的地址
+    if (window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const addressParam = urlParams.get('address');
+        if (addressParam) {
+            // 等待表单显示后填充地址
+            setTimeout(() => {
+                document.getElementById('address').value = decodeURIComponent(addressParam);
+            }, 300);
+        }
+    }
 
     // 保存當前目標到 localStorage
     localStorage.setItem('currentTarget', JSON.stringify(target));
