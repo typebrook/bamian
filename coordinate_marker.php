@@ -1,6 +1,6 @@
 <?php
 // 设置密码保护
-$password = "fanqingfumafsdfsing123131"; // 请修改为您的安全密码
+$password = "fanqingfuming"; // 请修改为您的安全密码
 
 // 检查是否已登录
 session_start();

@@ -41,7 +41,7 @@ $(document).ready(function() {
     // 图片缓存
     const imageCache = new Map();
     
-    // 加载本地数据
+    // 加载本地数据 
     $.getJSON('data.json', function(jsonData) {
         data = jsonData.targets; // 保存数据到全局变量
         $('#targetSearch').select2({
@@ -50,7 +50,7 @@ $(document).ready(function() {
             minimumInputLength: 1,
             language: {
                 inputTooShort: function() {
-                    return '請輸入至少一個漢字，再使用Tab鍵完成確認';
+                    return '請輸入至少一個漢字，再使用Tab鍵完成確認，按 Space空格鍵顯示完整列表';
                 },
                 searching: function() {
                     return '搜尋中...';
@@ -419,20 +419,21 @@ async function generatePDF() {
         const doc = new jsPDF({
             orientation: 'landscape',  // 使用横向
             unit: 'mm',
-            format: 'a4'
+            format: 'a4',
+            compress: true // 啟用壓縮
         });
         
-        // 获取 Canvas 的图像数据
-        const canvasDataUrl = canvas.toDataURL('image/png');
+        // 获取 Canvas 的图像数据，使用較低的質量以減小文件大小
+        const canvasDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 使用 JPEG 格式和 0.7 的質量
         
         // 计算图片在PDF中的尺寸，保持原始比例
         const pageWidth = 297;  // A4 横向宽度（毫米）
         const pageHeight = 210;  // A4 横向高度（毫米）
         
         // 添加图片到 PDF
-        doc.addImage(canvasDataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+        doc.addImage(canvasDataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
         
-        // 显示预览
+        // 顯示預覽
         const previewContainer = document.querySelector('.preview-container');
         previewContainer.style.display = 'block';
         
@@ -457,6 +458,7 @@ async function generatePDF() {
         downloadBtn.className = 'btn btn-primary me-2';
         downloadBtn.textContent = '下載PDF再去便利店列印';
         downloadBtn.onclick = function() {
+            // 下載 PDF
             const link = document.createElement('a');
             link.href = pdfData;
             link.download = `連署書_${formData.name}.pdf`;
@@ -464,7 +466,7 @@ async function generatePDF() {
             link.click();
             document.body.removeChild(link);
             
-            // 显示覆盖层
+            // 顯示覆蓋層
             showOverlay();
         };
         
@@ -519,70 +521,181 @@ async function generatePDF() {
         buttonContainer.appendChild(downloadBtn);
         buttonContainer.appendChild(printBtn);
         
-        // 清空预览容器并添加按钮和新的 iframe
+        // 創建 PNG 預覽容器
+        const pngPreviewContainer = document.createElement('div');
+        pngPreviewContainer.className = 'png-preview-container';
+        pngPreviewContainer.style.width = '80%';
+        pngPreviewContainer.style.height = '400px';
+        pngPreviewContainer.style.overflow = 'auto';
+        pngPreviewContainer.style.border = '1px solid #ddd';
+        pngPreviewContainer.style.marginBottom = '20px';
+        pngPreviewContainer.style.backgroundColor = '#f8f9fa';
+        pngPreviewContainer.style.display = 'flex';
+        pngPreviewContainer.style.justifyContent = 'center';
+        pngPreviewContainer.style.alignItems = 'center';
+        pngPreviewContainer.style.margin = '0 auto';
+        pngPreviewContainer.style.position = 'relative';
+        
+        // 創建 PNG 圖片元素
+        const pngImage = document.createElement('img');
+        pngImage.style.maxWidth = '100%';
+        pngImage.style.maxHeight = '100%';
+        pngImage.style.objectFit = 'contain';
+        pngImage.style.display = 'none'; // 初始隱藏圖片
+        
+        // 將 Canvas 轉換為 PNG 圖片
+        const previewImageDataUrl = canvas.toDataURL('image/png', 0.8);
+        pngImage.src = previewImageDataUrl;
+        
+        // 創建 PDF 預覽 iframe
+        const pdfFrame = document.createElement('iframe');
+        pdfFrame.id = 'pdfOverlayIframe';
+        pdfFrame.style.width = '100%';
+        pdfFrame.style.height = '100%';
+        pdfFrame.style.border = 'none';
+        pdfFrame.style.position = 'absolute';
+        pdfFrame.style.top = '0';
+        pdfFrame.style.left = '0';
+        pdfFrame.style.zIndex = '1';
+        pdfFrame.style.display = 'none'; // 初始隱藏 PDF 預覽
+        
+        // 將 PDF 數據寫入 iframe - 改為直接設置 src
+        const pdfData = doc.output('datauristring');
+        // 直接設置 src，並嘗試添加 zoom=page-width 參數 (替代 view=FitH for Safari)
+        pdfFrame.src = pdfData + '#zoom=page-width';
+        
+        // 添加右鍵點擊事件處理
+        pngPreviewContainer.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            
+            // 切換 PDF 預覽的顯示狀態
+            if (pdfFrame.style.display === 'none') {
+                pdfFrame.style.display = 'block';
+                pngImage.style.display = 'none';
+            } else {
+                pdfFrame.style.display = 'none';
+                pngImage.style.display = 'block';
+            }
+        });
+        
+        // 添加加載指示器
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'spinner-border text-primary';
+        loadingIndicator.role = 'status';
+        loadingIndicator.style.position = 'absolute';
+        loadingIndicator.style.top = '50%';
+        loadingIndicator.style.left = '50%';
+        loadingIndicator.style.transform = 'translate(-50%, -50%)';
+        loadingIndicator.style.zIndex = '5';
+        loadingIndicator.innerHTML = '<span class="visually-hidden">加載中...</span>';
+        pngPreviewContainer.appendChild(loadingIndicator);
+        
+        // 圖片加載完成後移除加載指示器並顯示圖片
+        pngImage.onload = function() {
+            loadingIndicator.style.display = 'none';
+            pngImage.style.display = 'block';
+        };
+        
+        // 圖片加載失敗處理
+        pngImage.onerror = function() {
+            loadingIndicator.style.display = 'none';
+            showPDFError();
+        };
+        
+        // 將圖片和 PDF 預覽添加到容器
+        pngPreviewContainer.appendChild(pngImage);
+        pngPreviewContainer.appendChild(pdfFrame);
+        
+        // 清空預覽容器並添加 PNG 預覽容器
         const pdfPreview = document.getElementById('pdfPreview');
         pdfPreview.innerHTML = '';
         pdfPreview.appendChild(buttonContainer);
+        pdfPreview.appendChild(pngPreviewContainer);
         
-        // 创建预览 iframe
-        const previewFrame = document.createElement('iframe');
-        previewFrame.style.width = '100%';
-        previewFrame.style.height = '500px';
-        previewFrame.style.border = 'none';
-        pdfPreview.appendChild(previewFrame);
-        
-        // 将 PDF 数据写入 iframe
-        const pdfData = doc.output('datauristring');
-        previewFrame.src = pdfData;
-        
-        // 创建预览下方的按钮容器
+        // 創建預覽下方的按鈕容器
         const previewBottomButtons = document.createElement('div');
         previewBottomButtons.className = 'd-flex justify-content-between align-items-center mt-3';
         
-        // 创建"我要罢免其他区域的立委"按钮
+        // 創建"我要罷免其他區域的立委"按鈕
         const changeTargetBtn = document.createElement('button');
         changeTargetBtn.className = 'btn btn-secondary';
         changeTargetBtn.textContent = '我要罷免其他區域的立委';
         changeTargetBtn.onclick = function() {
-            // 隐藏表单和预览区域
+            // 隱藏表單和預覽區域
             $('#petitionForm').hide();
             $('.preview-container').hide();
-            // 显示搜索区域和标签云
+            // 顯示搜索區域和標籤雲
             $('#searchSection').show();
             $('#mainTitle').show();
             // 重置 Select2
             $('#targetSearch').val('').trigger('change');
         };
         
-        // 创建"继续填写罢免某某某"按钮
+        // 創建"繼續填寫罷免某某某"按鈕
         const continueBtn = document.createElement('button');
         continueBtn.className = 'btn btn-primary';
         continueBtn.textContent = `繼續填寫罷免${target.name}`;
         continueBtn.onclick = function() {
-            // 隐藏预览区域
+            // 隱藏預覽區域
             $('.preview-container').hide();
-            // 显示表单
+            // 顯示表單
             $('#petitionForm').show();
             
-            // 清空表单数据
+            // 清空表單數據
             $('#name').val('');
             $('#idNumber').val('');
             $('#birthDate').val('');
             $('#address').val('');
             
-            // 更新开始时间
+            // 更新開始時間
             startTime = Date.now();
             localStorage.setItem('startTime', startTime.toString());
         };
         
-        // 添加按钮到预览下方按钮容器
+        // 添加按鈕到預覽下方按鈕容器
         previewBottomButtons.appendChild(changeTargetBtn);
         previewBottomButtons.appendChild(continueBtn);
         
-        // 添加预览下方按钮容器到预览容器
+        // 添加預覽下方按鈕容器到預覽容器
         pdfPreview.appendChild(previewBottomButtons);
         
-        // 滚动到预览区域
+        // 添加 PDF 預覽的備用方案 - 放在按鈕之後
+        const fallbackMessage = document.createElement('div');
+        fallbackMessage.className = 'alert alert-info mt-3';
+        fallbackMessage.innerHTML = `
+            <p>如果預覽無法顯示，您可以：</p>
+            <ol>
+                <li>點擊「下載PDF再去便利店列印」按鈕下載文件</li>
+                <li>使用其他瀏覽器（如 Firefox）打開本網站</li>
+                <li>直接點擊「列印」按鈕進行列印</li>
+            </ol>
+        `;
+        pdfPreview.appendChild(fallbackMessage);
+        
+        // 添加響應式樣式，優化手機設備顯示
+        const responsiveStyle = document.createElement('style');
+        responsiveStyle.textContent = `
+            @media (max-width: 768px) {
+                .png-preview-container {
+                    width: 95% !important;
+                    height: 300px !important;
+                }
+                .preview-container {
+                    padding: 0 10px;
+                }
+                .preview-bottom-buttons {
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .preview-bottom-buttons .btn {
+                    width: 100%;
+                    margin: 0;
+                }
+            }
+        `;
+        document.head.appendChild(responsiveStyle);
+        
+        // 滾動到預覽區域
         previewContainer.scrollIntoView({ behavior: 'smooth' });
         
     } catch (error) {
@@ -774,4 +887,227 @@ changeBtn.addEventListener('click', function() {
     document.getElementById('targetInfo').style.display = 'none';
     // 重置 Select2
     $(targetSearch).val('').trigger('change');
+});
+
+// 添加 PDF 錯誤處理函數
+function showPDFError() {
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'alert alert-warning mt-3';
+    errorMessage.innerHTML = `
+        <p>PDF 預覽加載失敗，請嘗試以下方法：</p>
+        <ol>
+            <li>點擊「下載PDF再去便利店列印」按鈕下載文件</li>
+            <li>使用其他瀏覽器（如 Firefox）打開本網站</li>
+            <li>直接點擊「列印」按鈕進行列印</li>
+        </ol>
+    `;
+    
+    const pdfPreview = document.getElementById('pdfPreview');
+    pdfPreview.insertBefore(errorMessage, pdfPreview.firstChild);
+}
+
+// 全形數字轉換為半形數字的函數
+function convertFullWidthToHalfWidth(str) {
+    return str.replace(/[\uFF10-\uFF19]/g, function(s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+}
+
+// 驗證身份證字號的函數
+function validateIdNumber(idNumberInput) {
+    let processedIdNumber = idNumberInput.value.trim();
+    
+    // 將全形數字轉換為半形數字
+    processedIdNumber = convertFullWidthToHalfWidth(processedIdNumber);
+    
+    // 移除所有非字母和數字的字符
+    processedIdNumber = processedIdNumber.replace(/[^A-Za-z0-9]/g, '');
+    
+    // 如果第一個字符是小寫字母，轉為大寫
+    if (processedIdNumber.length > 0 && /[a-z]/.test(processedIdNumber[0])) {
+        processedIdNumber = processedIdNumber[0].toUpperCase() + processedIdNumber.slice(1);
+    }
+    
+    // 如果有字母，確保只有一個字母且在開頭
+    if (processedIdNumber.match(/[A-Za-z]/g)?.length > 1) {
+        processedIdNumber = processedIdNumber.replace(/[A-Za-z]/g, (match, offset) => {
+            return offset === 0 ? match : '';
+        });
+    }
+    
+    // 如果有數字，只保留前9個數字
+    const numbers = processedIdNumber.match(/\d/g) || [];
+    const digits = numbers.slice(0, 9).join('');
+    
+    // 重新組合：字母 + 數字
+    processedIdNumber = (processedIdNumber.match(/[A-Z]/) || [''])[0] + digits;
+    
+    // 檢查格式是否符合要求：一個字母後跟9個數字
+    const idNumberPattern = /^[A-Z]\d{9}$/;
+    if (!idNumberPattern.test(processedIdNumber)) {
+        // 更新輸入框的值為處理後的值
+        idNumberInput.value = processedIdNumber;
+        idNumberInput.focus();
+        idNumberInput.select();
+        
+        // 添加錯誤樣式
+        idNumberInput.classList.remove('success');
+        idNumberInput.classList.add('error');
+        
+        // 2秒後移除動畫類，保持紅色邊框
+        setTimeout(() => {
+            idNumberInput.style.animation = 'none';
+        }, 2000);
+        
+        return false;
+    }
+    
+    // 更新輸入框的值為處理後的值
+    idNumberInput.value = processedIdNumber;
+    
+    // 添加成功樣式
+    idNumberInput.classList.remove('error');
+    idNumberInput.classList.add('success');
+    
+    return true;
+}
+
+// 驗證出生日期的函數
+function validateBirthDate(birthDateInput) {
+    let processedBirthDate = birthDateInput.value.trim();
+    
+    // 將全形數字轉換為半形數字
+    processedBirthDate = convertFullWidthToHalfWidth(processedBirthDate);
+    
+    // 移除所有非數字的字符
+    processedBirthDate = processedBirthDate.replace(/\D/g, '');
+    
+    // 檢查格式是否符合要求：6個數字或7個數字
+    const is6Digits = /^\d{6}$/.test(processedBirthDate);
+    const is7Digits = /^\d{7}$/.test(processedBirthDate);
+    
+    // 驗證6位數格式
+    if (is6Digits) {
+        const month = parseInt(processedBirthDate.substring(2, 4));
+        const day = parseInt(processedBirthDate.substring(4, 6));
+        
+        // 檢查月份是否在1-12之間
+        if (month < 1 || month > 12) {
+            birthDateInput.value = processedBirthDate;
+            birthDateInput.focus();
+            birthDateInput.select();
+            birthDateInput.classList.remove('success');
+            birthDateInput.classList.add('error');
+            setTimeout(() => {
+                birthDateInput.style.animation = 'none';
+            }, 2000);
+            return false;
+        }
+        
+        // 檢查日期是否有效
+        const daysInMonth = getDaysInMonth(month);
+        if (day < 1 || day > daysInMonth) {
+            birthDateInput.value = processedBirthDate;
+            birthDateInput.focus();
+            birthDateInput.select();
+            birthDateInput.classList.remove('success');
+            birthDateInput.classList.add('error');
+            setTimeout(() => {
+                birthDateInput.style.animation = 'none';
+            }, 2000);
+            return false;
+        }
+    }
+    
+    // 驗證7位數格式
+    if (is7Digits) {
+        const year = parseInt(processedBirthDate.substring(0, 1));
+        const month = parseInt(processedBirthDate.substring(3, 5));
+        const day = parseInt(processedBirthDate.substring(5, 7));
+        
+        // 檢查年份是否為1
+        if (year > 1) {
+            birthDateInput.value = processedBirthDate;
+            birthDateInput.focus();
+            birthDateInput.select();
+            birthDateInput.classList.remove('success');
+            birthDateInput.classList.add('error');
+            setTimeout(() => {
+                birthDateInput.style.animation = 'none';
+            }, 2000);
+            return false;
+        }
+        
+        // 檢查月份是否在1-12之間
+        if (month < 1 || month > 12) {
+            birthDateInput.value = processedBirthDate;
+            birthDateInput.focus();
+            birthDateInput.select();
+            birthDateInput.classList.remove('success');
+            birthDateInput.classList.add('error');
+            setTimeout(() => {
+                birthDateInput.style.animation = 'none';
+            }, 2000);
+            return false;
+        }
+        
+        // 檢查日期是否有效
+        const daysInMonth = getDaysInMonth(month);
+        if (day < 1 || day > daysInMonth) {
+            birthDateInput.value = processedBirthDate;
+            birthDateInput.focus();
+            birthDateInput.select();
+            birthDateInput.classList.remove('success');
+            birthDateInput.classList.add('error');
+            setTimeout(() => {
+                birthDateInput.style.animation = 'none';
+            }, 2000);
+            return false;
+        }
+    }
+    
+    // 如果既不是6位數也不是7位數，則不合法
+    if (!is6Digits && !is7Digits) {
+        birthDateInput.value = processedBirthDate;
+        birthDateInput.focus();
+        birthDateInput.select();
+        birthDateInput.classList.remove('success');
+        birthDateInput.classList.add('error');
+        setTimeout(() => {
+            birthDateInput.style.animation = 'none';
+        }, 2000);
+        return false;
+    }
+    
+    // 更新輸入框的值為處理後的值
+    birthDateInput.value = processedBirthDate;
+    
+    // 添加成功樣式
+    birthDateInput.classList.remove('error');
+    birthDateInput.classList.add('success');
+    
+    return true;
+}
+
+// 獲取指定月份的天數
+function getDaysInMonth(month) {
+    // 簡單的月份天數判斷，不考慮閏年
+    const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return daysInMonth[month];
+}
+
+// 添加輸入框的全形數字轉換事件
+document.addEventListener('DOMContentLoaded', function() {
+    // 為所有輸入框添加輸入事件監聽器
+    const inputFields = ['name', 'idNumber', 'birthDate', 'address'];
+    
+    inputFields.forEach(fieldId => {
+        const input = document.getElementById(fieldId);
+        if (input) {
+            input.addEventListener('input', function() {
+                // 將全形數字轉換為半形數字
+                this.value = convertFullWidthToHalfWidth(this.value);
+            });
+        }
+    });
 }); 

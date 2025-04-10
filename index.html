@@ -99,6 +99,13 @@
             50% { border-color: #dc3545; }
             75% { border-color: rgba(220, 53, 69, 0.3); }
         }
+        @keyframes focusBlink {
+            0%, 100% { border-color: #198754; }
+            50% { border-color: rgba(25, 135, 84, 0.3); }
+        }
+        .form-control.focus-blink {
+            animation: focusBlink 1s ease-in-out 2;
+        }
         .btn {
             font-size: 20px;
             padding: 10px 20px;
@@ -333,6 +340,26 @@
             font-weight: bold;
             text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
         }
+        /* 底部按鈕容器樣式 */
+        #offlineStatus {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        #offlineStatus .btn {
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            #offlineStatus {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            #offlineStatus .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -353,7 +380,7 @@
                 <small class="form-text text-muted">請輸入至少一個漢字，再使用<span class="tab-key">Tab</span>鍵完成確認</small>
             </div>
             <div class="tag-cloud">
-                <div class="tag-cloud-title">列出罷免對象</div>
+                <div class="tag-cloud-title">罷免對象</div>
                 <div class="tag-cloud-container" id="tagCloudContainer"></div>
             </div>
         </div>
@@ -374,7 +401,7 @@
 
                 <div class="form-group">
                     <label for="birthDate">出生日期：</label>
-                    <input type="text" class="form-control" id="birthDate"   placeholder="例如：890604" maxlength="6" required>
+                    <input type="text" class="form-control" id="birthDate"   placeholder="例如：890604" maxlength="7" required>
                 </div>
             </div>
             
@@ -411,7 +438,7 @@
     <footer class="footer mt-5 py-3 bg-light">
         <div class="container text-center">
             <p class="mb-1">
-本<a href="https://github.com/Zola/bamian" target="_blank">離線連署書製作專案</a>由花蓮人佐拉獨立開發，開放源代碼，提供完全離線的罷免連署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。歡迎斷開WI-FI使用，歡迎分享給親朋好友。花蓮人懇求
+本<a href="https://github.com/Zola/bamian" target="_blank">離線連署書製作專案</a>由花蓮人佐拉獨立開發，開放源代碼，提供完全離線的罷免連署書填寫功能，提供更簡單更流暢的用户體驗，不會蒐集任何個人資料，不提交任何資料到任何伺服器。歡迎斷開WI-FI使用，歡迎分享給親朋好友。花蓮人懇求一起罷免不適任的立法委員。
                 <br><br>
                 本網站開發者聯絡方式： <a href="https://zuo.la/" target="_blank">佐拉</a> | 
                 <a href="tel:0978877777">0978-877-777</a> | 
@@ -421,7 +448,9 @@
                 <button class="btn btn-sm btn-success me-2" id="onlineBadge" style="display: none;">已連線</button>
                 <button class="btn btn-sm btn-warning me-2" id="offlineBadge" style="display: none;">離線模式</button>
                 <button id="clearCache" class="btn btn-sm btn-outline-danger">清除離線緩存</button>
+               
             </div>
+            <div id="versionInfo" class="mt-2 text-muted small"></div>
             </p>
         </div>
     </footer>
@@ -474,6 +503,46 @@
         document.body.appendChild(script);
     </script>
     <script>
+        // 版本號顯示相關函數
+        function formatVersionNumber(date) {
+            const year = date.getFullYear().toString().slice(-2);
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hour = date.getHours().toString().padStart(2, '0');
+            return `0.${year}${month}${day}${hour}`;
+        }
+
+        function formatRelativeTime(date) {
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000); // 轉換為秒
+
+            if (diff < 60) {
+                return `${diff}秒前`;
+            } else if (diff < 3600) {
+                const minutes = Math.floor(diff / 60);
+                return `${minutes}分鐘前`;
+            } else if (diff < 86400) {
+                const hours = Math.floor(diff / 3600);
+                return `${hours}小時前`;
+            } else {
+                const days = Math.floor(diff / 86400);
+                return `${days}天前`;
+            }
+        }
+
+        function updateVersionInfo() {
+            const lastModified = new Date(document.lastModified);
+            const versionNumber = formatVersionNumber(lastModified);
+            const relativeTime = formatRelativeTime(lastModified);
+            document.getElementById('versionInfo').textContent = `版本：${versionNumber}（${relativeTime}）`;
+        }
+
+        // 頁面載入時更新版本信息
+        document.addEventListener('DOMContentLoaded', updateVersionInfo);
+
+        // 每分鐘更新一次相對時間
+        setInterval(updateVersionInfo, 60000);
+
         // 定义缓存资源列表
         const STATIC_RESOURCES = [
             '/',
@@ -760,6 +829,20 @@
                     data = jsonData.targets; // 從 targets 數組中獲取數據
                     updateTagCloud();
                     initializeSearchOptions();
+                    
+                    // 檢查 URL hash
+                    const hash = window.location.hash.slice(1); // 移除 # 符號
+                    if (hash) {
+                        const decodedName = decodeURIComponent(hash);
+                        // 檢查是否為有效的罷免對象
+                        const target = data.find(item => item.name === decodedName);
+                        if (target) {
+                            // 設置 Select2 的值
+                            $(targetSearch).val(target.name).trigger('change');
+                            // 直接顯示表單
+                            showPetitionForm(target.name);
+                        }
+                    }
                 })
                 .catch(error => {
                     console.error('Error loading data.json:', error);
@@ -781,12 +864,15 @@
 
                 // 初始化 Select2
                 $(targetSearch).select2({
-                    placeholder: '請選擇或輸入姓名',
+                    placeholder: '請選擇或輸入罷免對象的姓名或選區',
                     allowClear: true,
                     width: '100%',
                     language: {
                         noResults: function() {
                             return '找不到符合的結果';
+                        },
+                        inputTooShort: function() {
+                            return '請輸入至少一個漢字，再使用Tab鍵完成確認，按 Space空格鍵顯示完整列表';
                         }
                     },
                     matcher: function(params, data) {
@@ -808,10 +894,19 @@
                     }
                 });
 
+                // 設置焦點到搜尋框（只有在沒有 hash 時）
+                if (!window.location.hash) {
+                    setTimeout(() => {
+                        $(targetSearch).select2('open');
+                    }, 100);
+                }
+
                 // 處理 Select2 選擇事件
                 $(targetSearch).on('select2:select', function(e) {
                     const selectedName = e.params.data.text.split(' (')[0]; // 只取名字部分
                     if (selectedName) {
+                        // 更新 URL hash
+                        window.location.hash = encodeURIComponent(selectedName);
                         showPetitionForm(selectedName);
                     }
                 });
@@ -827,6 +922,23 @@
                 
                 // 更新連署統計
                 updatePetitionStats(name);
+
+                // 顯示表單
+                document.getElementById('petitionForm').style.display = 'block';
+                
+                // 獲取姓名輸入框
+                const nameInput = document.getElementById('name');
+                
+                // 設置焦點
+                nameInput.focus();
+                
+                // 添加閃爍動畫
+                nameInput.classList.add('focus-blink');
+                
+                // 動畫結束後移除類名
+                nameInput.addEventListener('animationend', function() {
+                    nameInput.classList.remove('focus-blink');
+                }, { once: true });
             }
 
             // 更新標籤雲
@@ -924,46 +1036,6 @@
                 return true;
             }
 
-            // 驗證出生日期的函數
-            function validateBirthDate(birthDateInput) {
-                let processedBirthDate = birthDateInput.value.trim();
-                
-                // 移除所有非數字的字符
-                processedBirthDate = processedBirthDate.replace(/\D/g, '');
-                
-                // 只保留前6個數字
-                processedBirthDate = processedBirthDate.slice(0, 6);
-                
-                // 檢查格式是否符合要求：6個數字
-                const birthDatePattern = /^\d{6}$/;
-                if (!birthDatePattern.test(processedBirthDate)) {
-                    // 更新輸入框的值為處理後的值
-                    birthDateInput.value = processedBirthDate;
-                    birthDateInput.focus();
-                    birthDateInput.select();
-                    
-                    // 添加錯誤樣式
-                    birthDateInput.classList.remove('success');
-                    birthDateInput.classList.add('error');
-                    
-                    // 2秒後移除動畫類，保持紅色邊框
-                    setTimeout(() => {
-                        birthDateInput.style.animation = 'none';
-                    }, 2000);
-                    
-                    return false;
-                }
-                
-                // 更新輸入框的值為處理後的值
-                birthDateInput.value = processedBirthDate;
-                
-                // 添加成功樣式
-                birthDateInput.classList.remove('error');
-                birthDateInput.classList.add('success');
-                
-                return true;
-            }
-
             // 處理表單提交
             document.getElementById('petitionForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -1009,7 +1081,7 @@
             document.getElementById('idNumber').addEventListener('blur', function() {
                 validateIdNumber(this);
             });
-
+            
             // 添加出生日期輸入框的失焦事件監聽
             document.getElementById('birthDate').addEventListener('blur', function() {
                 validateBirthDate(this);
